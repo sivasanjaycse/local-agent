@@ -1,102 +1,200 @@
+"""
+Workflow Recommendation Module — Module 4
+
+Correlates the high-level intent from Module 3 with extracted entities
+to synthesize a multi-step workflow of concrete desktop actions.
+
+Currently uses static default templates per intent. When the Knowledge
+Base (Module 8) is implemented, this module will query it for temporal
+context and historical usage to produce personalized recommendations.
+"""
+
+
+# ------------------------------------------------------------------
+# Default workflow templates per intent
+#
+# These provide fallback actions when the LLM's entity extraction
+# does not include enough information to build a complete workflow.
+# Once the Knowledge Base is available, these will be augmented
+# with personalized, context-aware recommendations.
+# ------------------------------------------------------------------
+
+DEFAULT_WORKFLOWS = {
+    "CODING": {
+        "applications": ["VS Code"],
+        "websites": [
+            {"name": "GitHub", "url": "https://github.com"},
+        ],
+    },
+    "MEETING": {
+        "applications": [],
+        "websites": [
+            {"name": "Google Meet", "url": "https://meet.google.com"},
+        ],
+    },
+    "RESEARCH": {
+        "applications": ["Chrome"],
+        "websites": [],
+    },
+    "ENTERTAINMENT": {
+        "applications": [],
+        "websites": [
+            {"name": "YouTube", "url": "https://www.youtube.com"},
+            {"name": "Spotify", "url": "https://open.spotify.com"},
+        ],
+    },
+    "COMMUNICATION": {
+        "applications": ["Chrome"],
+        "websites": [
+            {"name": "Gmail", "url": "https://mail.google.com"},
+        ],
+    },
+    "PRODUCTIVITY": {
+        "applications": ["Notepad"],
+        "websites": [],
+    },
+    "SYSTEM": {
+        "applications": [],
+        "websites": [],
+    },
+}
+
+INTENT_LABELS = {
+    "CODING":        "coding session",
+    "MEETING":       "meeting setup",
+    "RESEARCH":      "research session",
+    "ENTERTAINMENT": "entertainment session",
+    "COMMUNICATION": "communication setup",
+    "PRODUCTIVITY":  "productivity task",
+    "SYSTEM":        "system operation",
+}
+
+
 def build_workflow(intent_result):
+    """
+    Build a multi-step workflow from a high-level intent + entities.
 
+    Args:
+        intent_result: dict from GeminiIntentClassifier with keys
+                       intent, entities, reasoning.
+
+    Returns:
+        dict with workflow_id, intent, steps, description, reasoning.
+    """
     intent = intent_result["intent"]
-    parameters = intent_result["parameters"]
+    entities = intent_result.get("entities", {})
+    reasoning = intent_result.get("reasoning", "")
 
-    if intent == "OPEN_APPLICATION":
-        application = parameters.get("application")
-        open_folder = parameters.get("open_folder", False)
+    steps = []
 
-        description = f"Open {application}"
-        if open_folder:
-            description = f"Open current folder in {application}"
+    # ---- Build steps from extracted entities ----
 
-        return {
-            "workflow_id": "open_application",
-            "action": "OPEN_APPLICATION",
-            "target": application,
-            "open_folder": open_folder,
-            "description": description
-        }
+    action = entities.get("action", "open")
 
-    elif intent == "WEB_SEARCH":
-        query = parameters.get("query")
-        website = parameters.get("website")
-
-        return {
-            "workflow_id": "web_search",
-            "action": "WEB_SEARCH",
-            "query": query,
-            "website": website,
-            "description": f"Search the web for '{query}'"
-        }
-
-    elif intent == "FILE_OPERATION":
-        operation = parameters.get("operation")
-        name = parameters.get("name")
-
-        return {
-            "workflow_id": "file_operation",
-            "action": "FILE_OPERATION",
-            "operation": operation,
-            "name": name,
-            "description": f"{operation.replace('_', ' ').capitalize()} '{name}'"
-        }
-
-    elif intent == "SYSTEM_ACTION":
-        action = parameters.get("action")
-
-        return {
-            "workflow_id": "system_action",
-            "action": "SYSTEM_ACTION",
-            "type": action,
-            "description": f"Perform system action: {action}"
-        }
-
-    elif intent == "OPEN_WEBSITE":
-        website = parameters.get("website")
-        url = parameters.get("url")
-
-        return {
-            "workflow_id": "open_website",
-            "action": "OPEN_WEBSITE",
-            "target": website,
-            "url": url,
-            "description": f"Open {website} ({url})"
-        }
-
-    elif intent == "VIBE_CODING":
-        websites = parameters.get("websites", [])
-
-        steps = []
-        site_names = []
-
-        for site in websites:
-            steps.append({
-                "action": "OPEN_WEBSITE",
-                "target": site.get("website"),
-                "url": site.get("url")
-            })
-            site_names.append(site.get("website"))
-
-        # Always include VS Code as the final step
+    # 1. System-level actions (screenshot, create_folder)
+    if action == "screenshot":
         steps.append({
-            "action": "OPEN_APPLICATION",
-            "target": "VS Code"
+            "action": "SYSTEM_ACTION",
+            "type": "screenshot",
         })
 
-        description = (
-            "Start vibe coding session — open "
-            + ", ".join(site_names)
-            + " & VS Code"
-        )
-
-        return {
-            "workflow_id": "vibe_coding",
-            "action": "VIBE_CODING",
-            "steps": steps,
-            "description": description
-        }
+    elif action == "create_folder":
+        file_target = entities.get("file_target", "")
+        if file_target:
+            steps.append({
+                "action": "FILE_OPERATION",
+                "operation": "create_folder",
+                "name": file_target,
+            })
 
     else:
-        raise ValueError(f"Unsupported intent: {intent}")
+        # 2. Applications
+        for app in entities.get("applications", []):
+            step = {
+                "action": "OPEN_APPLICATION",
+                "target": app,
+            }
+            if action == "open_folder":
+                step["open_folder"] = True
+            steps.append(step)
+
+        # 3. Websites
+        for site in entities.get("websites", []):
+            steps.append({
+                "action": "OPEN_WEBSITE",
+                "target": site.get("name", ""),
+                "url": site.get("url", ""),
+            })
+
+        # 4. Search query
+        query = entities.get("query", "")
+        if query:
+            steps.append({
+                "action": "WEB_SEARCH",
+                "query": query,
+            })
+
+    # ---- Fallback to defaults if no steps were built ----
+    if not steps:
+        defaults = DEFAULT_WORKFLOWS.get(intent, {})
+
+        for app in defaults.get("applications", []):
+            steps.append({
+                "action": "OPEN_APPLICATION",
+                "target": app,
+            })
+
+        for site in defaults.get("websites", []):
+            steps.append({
+                "action": "OPEN_WEBSITE",
+                "target": site["name"],
+                "url": site["url"],
+            })
+
+    # ---- Build human-readable description ----
+    description = _build_description(intent, steps)
+
+    return {
+        "workflow_id": intent.lower(),
+        "intent": intent,
+        "steps": steps,
+        "description": description,
+        "reasoning": reasoning,
+    }
+
+
+def _build_description(intent, steps):
+    """Generate a readable summary of the workflow."""
+    label = INTENT_LABELS.get(intent, "task")
+
+    parts = []
+    for step in steps:
+        action = step.get("action")
+
+        if action == "OPEN_APPLICATION":
+            target = step.get("target", "app")
+            if step.get("open_folder"):
+                parts.append(f"{target} (folder)")
+            else:
+                parts.append(target)
+
+        elif action == "OPEN_WEBSITE":
+            parts.append(step.get("target", "website"))
+
+        elif action == "WEB_SEARCH":
+            parts.append(f"search '{step.get('query', '')}'")
+
+        elif action == "FILE_OPERATION":
+            op = step.get("operation", "")
+            name = step.get("name", "")
+            parts.append(
+                f"{op.replace('_', ' ')} '{name}'"
+            )
+
+        elif action == "SYSTEM_ACTION":
+            parts.append(step.get("type", "action"))
+
+    if parts:
+        return f"Start {label} \u2014 {', '.join(parts)}"
+
+    return f"Start {label}"

@@ -109,72 +109,62 @@ def execute_system_action(action):
     print(f"Screenshot saved as: {filename} ✅")
 
 
-def execute_vibe_coding(workflow):
+def execute_workflow(workflow):
+    """
+    Execute a multi-step workflow.
+
+    Each workflow produced by the Workflow Builder (Module 4) now
+    contains a list of steps.  This function iterates through them,
+    dispatching each step to the appropriate action handler.
+    """
 
     steps = workflow.get("steps", [])
+    intent = workflow.get("intent", "UNKNOWN")
 
-    print(f"\n🚀 Starting vibe coding session ({len(steps)} steps)...\n")
+    if not steps:
+        print("No steps to execute.")
+        return
+
+    total = len(steps)
+    label = intent.replace("_", " ").title()
+
+    print(f"\n  Starting {label} workflow ({total} step{'s' if total != 1 else ''})...\n")
 
     for i, step in enumerate(steps, 1):
         action = step.get("action")
+        print(f"  [{i}/{total}] ", end="")
 
-        print(f"  [{i}/{len(steps)}] ", end="")
-
-        if action == "OPEN_WEBSITE":
-            execute_open_website(
-                step.get("target"),
-                step.get("url")
-            )
-
-        elif action == "OPEN_APPLICATION":
+        if action == "OPEN_APPLICATION":
             execute_open_application(
                 step.get("target"),
-                step.get("open_folder", False)
+                step.get("open_folder", False),
+            )
+
+        elif action == "OPEN_WEBSITE":
+            execute_open_website(
+                step.get("target"),
+                step.get("url"),
+            )
+
+        elif action == "WEB_SEARCH":
+            execute_web_search(
+                step.get("query"),
+                step.get("website"),
+            )
+
+        elif action == "FILE_OPERATION":
+            execute_file_operation(
+                step.get("operation"),
+                step.get("name"),
+            )
+
+        elif action == "SYSTEM_ACTION":
+            execute_system_action(
+                step.get("type"),
             )
 
         else:
-            print(f"Skipping unknown step: {action}")
+            print(f"Skipping unknown action: {action}")
 
-    print("\n🎧 Vibe coding session ready! Let's go! 🚀")
+    print(f"\n  {label} workflow complete!")
 
-
-def execute_workflow(workflow):
-
-    action = workflow.get("action")
-
-    if action == "OPEN_APPLICATION":
-        execute_open_application(
-            workflow.get("target"),
-            workflow.get("open_folder", False)
-        )
-
-    elif action == "OPEN_WEBSITE":
-        execute_open_website(
-            workflow.get("target"),
-            workflow.get("url")
-        )
-
-    elif action == "WEB_SEARCH":
-        execute_web_search(
-            workflow.get("query"),
-            workflow.get("website")
-        )
-
-    elif action == "FILE_OPERATION":
-        execute_file_operation(
-            workflow.get("operation"),
-            workflow.get("name")
-        )
-
-    elif action == "SYSTEM_ACTION":
-        execute_system_action(
-            workflow.get("type")
-        )
-
-    elif action == "VIBE_CODING":
-        execute_vibe_coding(workflow)
-
-    else:
-        raise ValueError(
-            f"Unsupported workflow action: {action}"
-        )
