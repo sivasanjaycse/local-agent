@@ -1,6 +1,7 @@
 from agent.controller import AgentController
 from speech.microphone import MicrophoneRecorder
 from speech.whisper_transcriber import WhisperTranscriber
+from metrics.collector import MetricsCollector
 import config
 
 
@@ -13,16 +14,22 @@ def main():
     controller = AgentController()
     recorder = MicrophoneRecorder()
     transcriber = WhisperTranscriber()
+    metrics = MetricsCollector(controller.kb)
 
     while True:
 
-        print("\n[v] Voice input  |  [t] Text input  |  [exit] Quit")
+        print("\n[v] Voice input  |  [t] Text input  |  [m] Metrics  |  [exit] Quit")
 
         mode = input("\nSelect mode: ").strip().lower()
 
         if mode == "exit":
             print("\nGoodbye! 👋")
             break
+
+        if mode == "m":
+            report = metrics.generate_report()
+            print(report)
+            continue
 
         user_text = None
 
@@ -51,7 +58,7 @@ def main():
             user_text = input("\nCommand: ")
 
         else:
-            print("Invalid mode. Please enter 'v', 't', or 'exit'.")
+            print("Invalid mode. Please enter 'v', 't', 'm', or 'exit'.")
             continue
 
         if not user_text or not user_text.strip():

@@ -70,13 +70,16 @@ INTENT_LABELS = {
 }
 
 
-def build_workflow(intent_result):
+def build_workflow(intent_result, learner=None):
     """
     Build a multi-step workflow from a high-level intent + entities.
 
     Args:
         intent_result: dict from GeminiIntentClassifier with keys
                        intent, entities, reasoning.
+        learner:       Optional PreferenceLearningEngine instance.
+                       When provided, learned user preferences are
+                       used before falling back to static defaults.
 
     Returns:
         dict with workflow_id, intent, steps, description, reasoning.
@@ -134,7 +137,30 @@ def build_workflow(intent_result):
                 "query": query,
             })
 
-    # ---- Fallback to defaults if no steps were built ----
+    # ---- Learned preferences (from Knowledge Base) ----
+    #
+    # If the entity-based steps are empty and a learner is
+    # available, query historical usage before falling back
+    # to static defaults.
+
+    if not steps and learner is not None:
+        learned_apps = learner.get_recommended_apps(intent)
+        learned_sites = learner.get_recommended_websites(intent)
+
+        for app in learned_apps:
+            steps.append({
+                "action": "OPEN_APPLICATION",
+                "target": app,
+            })
+
+        for site in learned_sites:
+            steps.append({
+                "action": "OPEN_WEBSITE",
+                "target": site["name"],
+                "url": site["url"],
+            })
+
+    # ---- Static defaults (last resort) ----
     if not steps:
         defaults = DEFAULT_WORKFLOWS.get(intent, {})
 
