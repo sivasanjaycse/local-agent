@@ -5,11 +5,24 @@ import webbrowser
 import pyautogui
 
 
+# ------------------------------------------------------------------ #
+#  Common user folder shortcuts                                      #
+# ------------------------------------------------------------------ #
+COMMON_FOLDERS = {
+    "desktop":   os.path.join(os.path.expanduser("~"), "Desktop"),
+    "downloads": os.path.join(os.path.expanduser("~"), "Downloads"),
+    "documents": os.path.join(os.path.expanduser("~"), "Documents"),
+    "pictures":  os.path.join(os.path.expanduser("~"), "Pictures"),
+    "music":     os.path.join(os.path.expanduser("~"), "Music"),
+    "videos":    os.path.join(os.path.expanduser("~"), "Videos"),
+}
+
+
 def execute_open_application(application, open_folder=False):
 
     applications = {
-        "Google Chrome": "chrome",
-        "Chrome": "chrome",
+        "Microsoft Edge": "msedge",
+        "Edge": "msedge",
         "Notepad": "notepad",
         "Calculator": "calc",
         "VS Code": "code"
@@ -66,15 +79,27 @@ def execute_web_search(query, website=None):
     print(f"Opened web search for: {query} ✅")
 
 
-def execute_file_operation(operation, name):
+def execute_file_operation(operation, name, file_path=None):
+    """
+    Handle file operations: create_folder and open_file.
 
-    if not name:
-        raise ValueError("File/folder name cannot be empty")
+    For open_file:
+      - file_path can be a folder shortcut ("desktop", "downloads")
+        or a relative path like "desktop/report.pdf".
+      - If only a folder is specified, open it in File Explorer.
+      - If a file within the folder is specified, open it directly.
+    """
+
+    if operation == "open_file":
+        return _execute_open_file(name, file_path)
 
     if operation != "create_folder":
         raise ValueError(
             f"Unsupported file operation: {operation}"
         )
+
+    if not name:
+        raise ValueError("File/folder name cannot be empty")
 
     if os.path.basename(name) != name or name in {".", ".."}:
         raise ValueError("Folder name must not include a path")
@@ -94,19 +119,62 @@ def execute_file_operation(operation, name):
     print(f"Folder created: {folder_path} ✅")
 
 
+def _execute_open_file(name, file_path):
+    """
+    Open a file or folder from common user directories.
+
+    Examples:
+      name="downloads", file_path=None      → opens Downloads folder
+      name="report.pdf", file_path="desktop" → opens Desktop/report.pdf
+      name="desktop", file_path=None         → opens Desktop folder
+    """
+
+    # If name is itself a known folder shortcut, open that folder
+    folder_key = (file_path or name or "").lower().strip()
+
+    if folder_key in COMMON_FOLDERS:
+        base_folder = COMMON_FOLDERS[folder_key]
+
+        if file_path and name and name.lower() != folder_key:
+            # A specific file within the folder
+            target = os.path.join(base_folder, name)
+        else:
+            # Just open the folder
+            target = base_folder
+
+        if not os.path.exists(target):
+            raise FileNotFoundError(
+                f"Path not found: {target}"
+            )
+
+        os.startfile(target)
+        print(f"Opened: {target} ✅")
+        return
+
+    raise ValueError(
+        f"Unknown folder or file target: '{name}'. "
+        f"Supported folders: {', '.join(COMMON_FOLDERS.keys())}"
+    )
+
+
 def execute_system_action(action):
 
-    if action != "screenshot":
+    if action == "screenshot":
+        screenshot = pyautogui.screenshot()
+        filename = "screenshot.png"
+        screenshot.save(filename)
+        print(f"Screenshot saved as: {filename} ✅")
+
+    elif action == "shutdown":
+        print("⚠️  Shutting down in 30 seconds...")
+        print("   Run 'shutdown /a' in a terminal to cancel.")
+        subprocess.Popen(["shutdown", "/s", "/t", "30"])
+        print(f"Shutdown scheduled ✅")
+
+    else:
         raise ValueError(
             f"Unsupported system action: {action}"
         )
-
-    screenshot = pyautogui.screenshot()
-
-    filename = "screenshot.png"
-    screenshot.save(filename)
-
-    print(f"Screenshot saved as: {filename} ✅")
 
 
 def execute_workflow(workflow):
@@ -156,6 +224,7 @@ def execute_workflow(workflow):
             execute_file_operation(
                 step.get("operation"),
                 step.get("name"),
+                step.get("file_path"),
             )
 
         elif action == "SYSTEM_ACTION":
@@ -167,4 +236,5 @@ def execute_workflow(workflow):
             print(f"Skipping unknown action: {action}")
 
     print(f"\n  {label} workflow complete!")
+
 

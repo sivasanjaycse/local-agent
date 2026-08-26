@@ -33,7 +33,7 @@ DEFAULT_WORKFLOWS = {
         ],
     },
     "RESEARCH": {
-        "applications": ["Chrome"],
+        "applications": ["Edge"],
         "websites": [],
     },
     "ENTERTAINMENT": {
@@ -44,9 +44,9 @@ DEFAULT_WORKFLOWS = {
         ],
     },
     "COMMUNICATION": {
-        "applications": ["Chrome"],
+        "applications": [],
         "websites": [
-            {"name": "Gmail", "url": "https://mail.google.com"},
+            {"name": "WhatsApp Web", "url": "https://web.whatsapp.com"},
         ],
     },
     "PRODUCTIVITY": {
@@ -94,11 +94,17 @@ def build_workflow(intent_result, learner=None):
 
     action = entities.get("action", "open")
 
-    # 1. System-level actions (screenshot, create_folder)
+    # 1. System-level actions (screenshot, create_folder, shutdown)
     if action == "screenshot":
         steps.append({
             "action": "SYSTEM_ACTION",
             "type": "screenshot",
+        })
+
+    elif action == "shutdown":
+        steps.append({
+            "action": "SYSTEM_ACTION",
+            "type": "shutdown",
         })
 
     elif action == "create_folder":
@@ -109,6 +115,17 @@ def build_workflow(intent_result, learner=None):
                 "operation": "create_folder",
                 "name": file_target,
             })
+
+    elif action == "open_file":
+        # Open a file or folder from common directories
+        file_target = entities.get("file_target", "")
+        file_path = entities.get("file_path", "")
+        steps.append({
+            "action": "FILE_OPERATION",
+            "operation": "open_file",
+            "name": file_target or file_path,
+            "file_path": file_path or file_target,
+        })
 
     else:
         # 2. Applications

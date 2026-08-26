@@ -27,6 +27,7 @@ EXPECTED_ENTITY_FIELDS = {
     "topic",
     "action",
     "file_target",
+    "file_path",
 }
 
 
