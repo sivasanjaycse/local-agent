@@ -26,6 +26,8 @@ Classify the user's request into exactly ONE of these intents:
 2. WEB_SEARCH
 3. FILE_OPERATION
 4. SYSTEM_ACTION
+5. OPEN_WEBSITE
+6. VIBE_CODING
 
 Return ONLY valid JSON.
 
@@ -43,6 +45,25 @@ User: "Open Chrome"
     "intent": "OPEN_APPLICATION",
     "parameters": {{
         "application": "Chrome"
+    }}
+}}
+
+User: "Open VS Code"
+
+{{
+    "intent": "OPEN_APPLICATION",
+    "parameters": {{
+        "application": "VS Code"
+    }}
+}}
+
+User: "Open this folder in VS Code"
+
+{{
+    "intent": "OPEN_APPLICATION",
+    "parameters": {{
+        "application": "VS Code",
+        "open_folder": true
     }}
 }}
 
@@ -75,6 +96,57 @@ User: "Take a screenshot"
     }}
 }}
 
+User: "Open Spotify"
+
+{{
+    "intent": "OPEN_WEBSITE",
+    "parameters": {{
+        "website": "Spotify",
+        "url": "https://open.spotify.com"
+    }}
+}}
+
+User: "Open Claude"
+
+{{
+    "intent": "OPEN_WEBSITE",
+    "parameters": {{
+        "website": "Claude",
+        "url": "https://claude.ai"
+    }}
+}}
+
+User: "Open GitHub"
+
+{{
+    "intent": "OPEN_WEBSITE",
+    "parameters": {{
+        "website": "GitHub",
+        "url": "https://github.com"
+    }}
+}}
+
+User: "Let's do vibe coding"
+
+{{
+    "intent": "VIBE_CODING",
+    "parameters": {{
+        "websites": [
+            {{"website": "Spotify", "url": "https://open.spotify.com"}},
+            {{"website": "YouTube", "url": "https://www.youtube.com"}},
+            {{"website": "Claude", "url": "https://claude.ai"}},
+            {{"website": "Gemini", "url": "https://gemini.google.com"}},
+            {{"website": "ChatGPT", "url": "https://chatgpt.com"}}
+        ]
+    }}
+}}
+
+IMPORTANT RULES:
+- For OPEN_WEBSITE, you MUST provide the correct, real URL for the website.
+- For VIBE_CODING, always include Spotify, YouTube, Claude, Gemini, and ChatGPT with their correct URLs.
+- OPEN_APPLICATION is for desktop apps like Chrome, Notepad, Calculator, VS Code.
+- OPEN_WEBSITE is for websites/web services that open in the browser.
+
 User request:
 "{user_text}"
 """
@@ -93,7 +165,9 @@ User request:
                                 "OPEN_APPLICATION",
                                 "WEB_SEARCH",
                                 "FILE_OPERATION",
-                                "SYSTEM_ACTION"
+                                "SYSTEM_ACTION",
+                                "OPEN_WEBSITE",
+                                "VIBE_CODING"
                             ]
                         },
                         "parameters": {
@@ -105,14 +179,37 @@ User request:
                                         "Google Chrome",
                                         "Chrome",
                                         "Notepad",
-                                        "Calculator"
+                                        "Calculator",
+                                        "VS Code"
                                     ]
+                                },
+                                "open_folder": {
+                                    "type": "boolean"
                                 },
                                 "query": {"type": "string"},
                                 "website": {"type": "string"},
+                                "url": {"type": "string"},
                                 "operation": {"type": "string"},
                                 "name": {"type": "string"},
-                                "action": {"type": "string"}
+                                "action": {"type": "string"},
+                                "websites": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "website": {
+                                                "type": "string"
+                                            },
+                                            "url": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "required": [
+                                            "website",
+                                            "url"
+                                        ]
+                                    }
+                                }
                             }
                         }
                     },

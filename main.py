@@ -1,4 +1,7 @@
 from agent.controller import AgentController
+from speech.microphone import MicrophoneRecorder
+from speech.whisper_transcriber import WhisperTranscriber
+import config
 
 
 def main():
@@ -8,19 +11,50 @@ def main():
     print("================================")
 
     controller = AgentController()
+    recorder = MicrophoneRecorder()
+    transcriber = WhisperTranscriber()
 
     while True:
 
-        print("\nType a command.")
-        print("Type 'exit' to quit.")
+        print("\n[v] Voice input  |  [t] Text input  |  [exit] Quit")
 
-        user_text = input("\nCommand: ")
+        mode = input("\nSelect mode: ").strip().lower()
 
-        if user_text.strip().lower() == "exit":
+        if mode == "exit":
             print("\nGoodbye! 👋")
             break
 
-        if not user_text.strip():
+        user_text = None
+
+        if mode == "v":
+            try:
+                print("\n🎤 Listening...")
+                audio_file = recorder.record(
+                    duration=config.RECORDING_DURATION
+                )
+
+                print("📝 Transcribing...")
+                result = transcriber.transcribe(audio_file)
+                user_text = result["text"]
+
+                print(f"\n🗣️  You said: \"{user_text}\"")
+
+                if not user_text.strip():
+                    print("Could not understand. Please try again.")
+                    continue
+
+            except Exception as e:
+                print(f"\n❌ Voice input error: {e}")
+                continue
+
+        elif mode == "t":
+            user_text = input("\nCommand: ")
+
+        else:
+            print("Invalid mode. Please enter 'v', 't', or 'exit'.")
+            continue
+
+        if not user_text or not user_text.strip():
             print("Please enter a command.")
             continue
 
